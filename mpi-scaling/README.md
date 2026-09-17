@@ -44,3 +44,17 @@ mpirun -np 4 python3 src/pi_estimate.py
 - Provision a second node and test *true* multi-node scaling (network-based communication, not just multi-core on one machine) — this is the version that most directly demonstrates MPI's actual distributed-computing value proposition
 - Test with a communication-heavier workload (not embarrassingly parallel) to see a more realistic efficiency curve with real communication overhead
 - Compare `Reduce` vs `Allreduce` overhead directly at scale
+
+## True multi-node scaling (2 separate physical machines)
+
+To test genuine distributed scaling (not just multi-core on one machine), the same benchmark was run across two independent Oracle Cloud VMs (2 OCPU/12GB each), connected over a real network, using an MPI hostfile to distribute ranks across both.
+
+| Processes | Single-node (4 cores, 1 machine) | Multi-node (2 nodes x 2 cores, real network) |
+|---|---|---|
+| 1 | 1.00x | 1.00x |
+| 2 | 1.99x | 1.94x |
+| 4 | 3.93x | 3.84x |
+
+The multi-node version is consistently, slightly less efficient — a small but real and expected cost of crossing an actual network connection for inter-process communication, versus communicating within one machine's shared kernel/memory subsystem. The gap is modest here specifically because this workload is embarrassingly parallel (minimal communication); a communication-heavy workload would likely show a more pronounced difference.
+
+Getting this working required two infrastructure steps beyond the single-node setup: opening the cloud network's security list for intra-subnet traffic, and disabling each node's local `firewalld` (both the cloud-level and OS-level firewalls block MPI's dynamic port usage by default). It also required setting up passwordless SSH trust from the launching node to the other, since `mpirun` starts remote processes via SSH under the hood.
